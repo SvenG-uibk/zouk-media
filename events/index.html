@@ -17,7 +17,7 @@
   --pill-class:#1b8fa6;     /* "CLASS" badge                     */
   --pill-social:#842b31;    /* "SOCIAL" badge (Zouk red)         */
   --pill-workshop:#d9822b;  /* "WORKSHOP" badge                  */
-  --pill-practica:#5b4b8a; /* "PRACTICA" badge                  */
+  --pill-practica:#5b4b8a;  /* "PRACTICA" badge                  */
   --pill-event:#6b7a8f;     /* any other type                    */
   --tag-bg:#fff7f1;         /* style tag ("Brazilian Zouk")      */
   --tag-text:#1e3049;
@@ -101,7 +101,7 @@ function guessType(title){
 function driveImages(ev){
   // Flyer attached to the event in Google Calendar (a Google Drive file shared "anyone with the link").
   const a = (ev.attachments||[]).find(x => /^image\//.test(x.mimeType||"") || /\.(jpe?g|png|webp|gif)$/i.test(x.title||""))
-         || (ev.attachments||[]).find(x => /drive\.google\.com/.test(x.fileUrl||"") && !/(document|spreadsheet|presentation|pdf|folder)/i.test(x.mimeType||""));
+         || (ev.attachments||[]).find(x => !x.mimeType && /drive\.google\.com/.test(x.fileUrl||""));
   if (!a) return [];
   const id = a.fileId || ((a.fileUrl||"").match(/\/d\/([-\w]{20,})/)||(a.fileUrl||"").match(/[?&]id=([-\w]{20,})/)||[])[1];
   if (!id) return [];
@@ -138,12 +138,15 @@ function shortLocation(loc){
   return city && !parts[0].includes(city) ? `${parts[0]}, ${city}` : parts[0];
 }
 
+// only allow normal web links (protects against odd text in the event description)
+const safeUrl = u => /^https?:\/\//i.test(String(u||"").trim()) ? String(u).trim() : "";
+
 function card(ev){
   const meta = parseDescription(ev.description);
   const type = meta.type || guessType(ev.summary);
   const typeCls = /class/i.test(type) ? "class" : /social/i.test(type) ? "social" : /workshop/i.test(type) ? "workshop" : /practica/i.test(type) ? "practica" : "event";
-  const imgs = meta.image ? [meta.image] : driveImages(ev);
-  const href = meta.link || ev.htmlLink || "#";
+  const imgs = safeUrl(meta.image) ? [safeUrl(meta.image)] : driveImages(ev);
+  const href = safeUrl(meta.link) || ev.htmlLink || "#";
   const start = new Date(ev.start.dateTime || ev.start.date + "T12:00:00");
   const d = new Intl.DateTimeFormat(CONFIG.locale,{day:"numeric",timeZone:CONFIG.timeZone}).format(start);
   const m = new Intl.DateTimeFormat(CONFIG.locale,{month:"short",timeZone:CONFIG.timeZone}).format(start);
