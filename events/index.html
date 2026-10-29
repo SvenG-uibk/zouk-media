@@ -1,1 +1,187 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Zouk Innsbruck – Upcoming Events</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ================= CONFIGURE COLOURS HERE ================= */
+:root{
+  --card-bg:#1e3049;        /* card body (Zouk navy)            */
+  --card-text:#ffffff;      /* title colour                      */
+  --meta-text:#c9d1dc;      /* location + date text              */
+  --icon:#e8846b;           /* pin + calendar icons (warm coral) */
+  --pill-class:#1b8fa6;     /* "CLASS" badge                     */
+  --pill-social:#842b31;    /* "SOCIAL" badge (Zouk red)         */
+  --pill-workshop:#d9822b;  /* "WORKSHOP" badge                  */
+  --pill-practica:#5b4b8a; /* "PRACTICA" badge                  */
+  --pill-event:#6b7a8f;     /* any other type                    */
+  --tag-bg:#fff7f1;         /* style tag ("Brazilian Zouk")      */
+  --tag-text:#1e3049;
+  --radius:22px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:transparent;font-family:Montserrat,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.list{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:24px;padding:4px 4px 16px;max-width:1240px;margin:0 auto}
+.card{display:flex;flex-direction:column;background:var(--card-bg);border-radius:var(--radius);overflow:hidden;
+  text-decoration:none;color:var(--card-text);box-shadow:0 6px 18px rgba(30,48,73,.18);transition:transform .15s ease, box-shadow .15s ease}
+.card:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(30,48,73,.26)}
+.media{position:relative;aspect-ratio:4/3;background:linear-gradient(135deg,#f6c9c4 0%,#fbe3dc 45%,#cfe0ee 100%);overflow:hidden}
+.media img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block}
+.placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#1e3049}
+.placeholder .d{font-size:64px;font-weight:800;line-height:1}
+.placeholder .m{font-size:18px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#842b31;margin-top:6px}
+.type{position:absolute;top:14px;left:14px;padding:7px 16px;border-radius:999px;color:#fff;font-weight:800;font-size:14px;letter-spacing:.08em;text-transform:uppercase;box-shadow:0 2px 6px rgba(0,0,0,.18)}
+.type.class{background:var(--pill-class)} .type.social{background:var(--pill-social)}
+.type.workshop{background:var(--pill-workshop)} .type.practica{background:var(--pill-practica)} .type.event{background:var(--pill-event)}
+.tag{position:absolute;left:14px;bottom:14px;padding:6px 14px;border-radius:999px;background:var(--tag-bg);color:var(--tag-text);font-weight:600;font-size:15px;box-shadow:0 2px 6px rgba(0,0,0,.15)}
+.body{padding:20px 22px 22px}
+.title{margin:0 0 14px;font-size:22px;line-height:1.25;font-weight:700}
+.meta{display:flex;align-items:center;gap:12px;color:var(--meta-text);font-size:16px;font-weight:500;margin-top:9px}
+.meta span .t{white-space:nowrap}
+.meta svg{flex:0 0 22px;width:22px;height:22px;stroke:var(--icon);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.empty,.error{grid-column:1/-1;text-align:center;padding:40px 16px;color:#1e3049;font-weight:600;background:#fff7f1;border-radius:var(--radius)}
+.error{color:#842b31;font-weight:500;font-size:14px}
+.more{grid-column:1/-1;text-align:center}
+.more a{display:inline-block;padding:12px 26px;border-radius:999px;background:#1e3049;color:#fff;text-decoration:none;font-weight:700}
+@media (max-width:520px){ .list{grid-template-columns:1fr;gap:20px} .title{font-size:21px} }
+</style>
+</head>
+<body>
+<div id="list" class="list" aria-live="polite"></div>
 
+<script>
+/* ===================== CONFIGURE HERE ===================== */
+const CONFIG = {
+  apiKey:      "AIzaSyDWr3KrWN_hz_yugeFFEIF51jYnCJIOOjQ",          // Google API key (restricted to Calendar API + your github.io address)
+  calendarId:  "7587fa9c4e80a500b2637ea7cde5aee646402cf0b5d2f5793ee859ad2de7bb5b@group.calendar.google.com",          // e.g. "zouk.innsbruck@gmail.com" or "abc123@group.calendar.google.com"
+  maxEvents:   6,           // how many upcoming events to show
+  timeZone:    "Europe/Vienna",
+  locale:      "en-GB",
+  defaultTag:  "Brazilian Zouk",      // pill on the image if the event has no "Tag:" line
+  defaultLocation: "Innsbruck, Austria",
+  allEventsUrl: "",         // optional: link for a "See all events" button under the list
+};
+/* ========================================================== */
+
+/* In each Google Calendar event you can add these lines to the DESCRIPTION (all optional):
+     Image: https://sveng-uibk.github.io/zouk-media/flyers/block2.jpg
+     Type: Class            (Class / Social / Workshop / anything)
+     Tag: Brazilian Zouk
+     Link: https://...      (where the card links to; default = the Google Calendar event)
+   Or attach the flyer from Google Drive to the event (file shared as "anyone with the link"). */
+
+const ICON_PIN = '<svg viewBox="0 0 24 24"><path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.6"/></svg>';
+const ICON_CAL = '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/></svg>';
+
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+
+function parseDescription(desc){
+  const text = String(desc||"").replace(/<br\s*\/?>/gi,"\n").replace(/<[^>]+>/g," ").replace(/&nbsp;/g," ").replace(/&amp;/g,"&");
+  const out = {};
+  for (const line of text.split(/\n/)){
+    const m = line.match(/^\s*(image|type|tag|link)\s*:\s*(\S.*?)\s*$/i);
+    if (m) out[m[1].toLowerCase()] = m[2];
+  }
+  return out;
+}
+
+function guessType(title){
+  const t = (title||"").toLowerCase();
+  if (/(class|kurs|block|level)/.test(t)) return "Class";
+  if (/(workshop|bootcamp|intensive)/.test(t)) return "Workshop";
+  if (/practica/.test(t)) return "Practica";
+  if (/(social|party|sunday)/.test(t)) return "Social";
+  return "";
+}
+
+function driveImage(ev){
+  const a = (ev.attachments||[]).find(x => /^image\//.test(x.mimeType||"") || /\.(jpe?g|png|webp)$/i.test(x.title||""));
+  if (!a) return "";
+  const id = a.fileId || ((a.fileUrl||"").match(/[-\w]{25,}/)||[])[0];
+  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1200` : "";
+}
+
+function fmtDate(ev){
+  const allDay = !!(ev.start && ev.start.date && !ev.start.dateTime);
+  const start = new Date(allDay ? ev.start.date + "T12:00:00" : ev.start.dateTime);
+  const end   = ev.end ? new Date(allDay ? ev.end.date + "T12:00:00" : ev.end.dateTime) : null;
+  const day = new Intl.DateTimeFormat(CONFIG.locale,{weekday:"short",day:"numeric",month:"short",year:"numeric",timeZone:CONFIG.timeZone}).format(start);
+  if (allDay) return day;
+  const t = d => new Intl.DateTimeFormat(CONFIG.locale,{hour:"2-digit",minute:"2-digit",timeZone:CONFIG.timeZone}).format(d);
+  return `${day} <span class="t">· ${t(start)}${end ? "–" + t(end) : ""}</span>`;
+}
+
+function shortLocation(loc){
+  if (!loc) return CONFIG.defaultLocation;
+  // "Baila Innsbruck, Sterzinger Str. 2, 6020 Innsbruck, Österreich" -> "Baila Innsbruck, Innsbruck"
+  const parts = loc.split(",").map(s=>s.trim()).filter(Boolean);
+  if (parts.length <= 2) return loc;
+  const city = (parts.find(p => /\d{4}\s+\S/.test(p)) || "").replace(/^\d{4}\s+/,"");
+  return city && !parts[0].includes(city) ? `${parts[0]}, ${city}` : parts[0];
+}
+
+function card(ev){
+  const meta = parseDescription(ev.description);
+  const type = meta.type || guessType(ev.summary);
+  const typeCls = /class/i.test(type) ? "class" : /social/i.test(type) ? "social" : /workshop/i.test(type) ? "workshop" : /practica/i.test(type) ? "practica" : "event";
+  const img = meta.image || driveImage(ev);
+  const href = meta.link || ev.htmlLink || "#";
+  const start = new Date(ev.start.dateTime || ev.start.date + "T12:00:00");
+  const d = new Intl.DateTimeFormat(CONFIG.locale,{day:"numeric",timeZone:CONFIG.timeZone}).format(start);
+  const m = new Intl.DateTimeFormat(CONFIG.locale,{month:"short",timeZone:CONFIG.timeZone}).format(start);
+  return `
+  <a class="card" href="${esc(href)}" target="_blank" rel="noopener">
+    <div class="media">
+      ${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="this.remove()">` :
+              `<div class="placeholder"><div class="d">${esc(d)}</div><div class="m">${esc(m)}</div></div>`}
+      ${type ? `<span class="type ${typeCls}">${esc(type)}</span>` : ""}
+      <span class="tag">${esc(meta.tag || CONFIG.defaultTag)}</span>
+    </div>
+    <div class="body">
+      <h3 class="title">${esc(ev.summary || "Event")}</h3>
+      <div class="meta">${ICON_PIN}<span>${esc(shortLocation(ev.location))}</span></div>
+      <div class="meta">${ICON_CAL}<span>${fmtDate(ev)}</span></div>
+    </div>
+  </a>`;
+}
+
+function render(events){
+  const el = document.getElementById("list");
+  if (!events.length){ el.innerHTML = '<div class="empty">No upcoming events right now – check back soon!</div>'; return; }
+  el.innerHTML = events.map(card).join("") +
+    (CONFIG.allEventsUrl ? `<div class="more"><a href="${esc(CONFIG.allEventsUrl)}" target="_blank" rel="noopener">See all events</a></div>` : "");
+}
+
+function demoEvents(){
+  const at = (days,h,m,dur) => { const s=new Date(); s.setDate(s.getDate()+days); s.setHours(h,m,0,0); const e=new Date(s.getTime()+dur*60000); return {start:{dateTime:s.toISOString()},end:{dateTime:e.toISOString()}}; };
+  return [
+    {summary:"Zouk Sunday – Social & Taster | FLINTA Edition", location:"Die Bäckerei, Dreiheiligenstraße 21a, 6020 Innsbruck, Österreich", description:"Type: Social", ...at(3,19,0,180)},
+    {summary:"Brazilian Zouk – Block 2 - 4/4", location:"Baila Innsbruck, Sterzinger Str. 2, 6020 Innsbruck, Österreich", description:"Type: Class", ...at(4,20,30,60)},
+    {summary:"Lambazouk Workshop Weekend", location:"Innsbruck, Austria", description:"Type: Workshop\nTag: Lambazouk", ...at(11,14,0,180)},
+  ];
+}
+
+async function load(){
+  if (!CONFIG.apiKey || !CONFIG.calendarId){ render(demoEvents()); return; }
+  const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CONFIG.calendarId)}/events`);
+  url.search = new URLSearchParams({
+    key: CONFIG.apiKey, timeMin: new Date().toISOString(), singleEvents: "true",
+    orderBy: "startTime", maxResults: String(CONFIG.maxEvents), supportsAttachments: "true",
+  });
+  try{
+    const res = await fetch(url);
+    const data = await res.json();
+    if (!res.ok) throw new Error((data.error && data.error.message) || res.status);
+    render(data.items || []);
+  }catch(e){
+    document.getElementById("list").innerHTML = `<div class="error">Events could not be loaded (${esc(e.message)}).</div>`;
+  }
+}
+load();
+</script>
+</body>
+</html>
