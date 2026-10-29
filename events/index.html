@@ -30,7 +30,7 @@ html,body{margin:0;background:transparent;font-family:Montserrat,Arial,sans-seri
   text-decoration:none;color:var(--card-text);box-shadow:0 6px 18px rgba(30,48,73,.18);transition:transform .15s ease, box-shadow .15s ease}
 .card:hover{transform:translateY(-3px);box-shadow:0 10px 26px rgba(30,48,73,.26)}
 .media{position:relative;aspect-ratio:4/3;background:linear-gradient(135deg,#f6c9c4 0%,#fbe3dc 45%,#cfe0ee 100%);overflow:hidden}
-.media img{width:100%;height:100%;object-fit:cover;object-position:center top;display:block}
+.media img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center top;display:block}
 .placeholder{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;color:#1e3049}
 .placeholder .d{font-size:64px;font-weight:800;line-height:1}
 .placeholder .m{font-size:18px;font-weight:700;letter-spacing:.18em;text-transform:uppercase;color:#842b31;margin-top:6px}
@@ -98,11 +98,25 @@ function guessType(title){
   return "";
 }
 
-function driveImage(ev){
-  const a = (ev.attachments||[]).find(x => /^image\//.test(x.mimeType||"") || /\.(jpe?g|png|webp)$/i.test(x.title||""));
-  if (!a) return "";
-  const id = a.fileId || ((a.fileUrl||"").match(/[-\w]{25,}/)||[])[0];
-  return id ? `https://drive.google.com/thumbnail?id=${id}&sz=w1200` : "";
+function driveImages(ev){
+  // Flyer attached to the event in Google Calendar (a Google Drive file shared "anyone with the link").
+  const a = (ev.attachments||[]).find(x => /^image\//.test(x.mimeType||"") || /\.(jpe?g|png|webp|gif)$/i.test(x.title||""))
+         || (ev.attachments||[]).find(x => /drive\.google\.com/.test(x.fileUrl||"") && !/(document|spreadsheet|presentation|pdf|folder)/i.test(x.mimeType||""));
+  if (!a) return [];
+  const id = a.fileId || ((a.fileUrl||"").match(/\/d\/([-\w]{20,})/)||(a.fileUrl||"").match(/[?&]id=([-\w]{20,})/)||[])[1];
+  if (!id) return [];
+  return [
+    `https://drive.google.com/thumbnail?id=${id}&sz=w1200`,   // Drive preview image
+    `https://lh3.googleusercontent.com/d/${id}=w1200`,        // backup address for the same file
+  ];
+}
+
+// try the next image address; if none works, remove the image so the pastel date card shows
+function nextImg(el){
+  const list = (el.dataset.srcs||"").split("|").filter(Boolean);
+  const next = list.shift();
+  el.dataset.srcs = list.join("|");
+  if (next) el.src = next; else el.remove();
 }
 
 function fmtDate(ev){
@@ -128,7 +142,7 @@ function card(ev){
   const meta = parseDescription(ev.description);
   const type = meta.type || guessType(ev.summary);
   const typeCls = /class/i.test(type) ? "class" : /social/i.test(type) ? "social" : /workshop/i.test(type) ? "workshop" : /practica/i.test(type) ? "practica" : "event";
-  const img = meta.image || driveImage(ev);
+  const imgs = meta.image ? [meta.image] : driveImages(ev);
   const href = meta.link || ev.htmlLink || "#";
   const start = new Date(ev.start.dateTime || ev.start.date + "T12:00:00");
   const d = new Intl.DateTimeFormat(CONFIG.locale,{day:"numeric",timeZone:CONFIG.timeZone}).format(start);
@@ -136,8 +150,8 @@ function card(ev){
   return `
   <a class="card" href="${esc(href)}" target="_blank" rel="noopener">
     <div class="media">
-      ${img ? `<img src="${esc(img)}" alt="" loading="lazy" onerror="this.remove()">` :
-              `<div class="placeholder"><div class="d">${esc(d)}</div><div class="m">${esc(m)}</div></div>`}
+      <div class="placeholder"><div class="d">${esc(d)}</div><div class="m">${esc(m)}</div></div>
+      ${imgs.length ? `<img src="${esc(imgs[0])}" data-srcs="${esc(imgs.slice(1).join("|"))}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="nextImg(this)">` : ""}
       ${type ? `<span class="type ${typeCls}">${esc(type)}</span>` : ""}
       <span class="tag">${esc(meta.tag || CONFIG.defaultTag)}</span>
     </div>
@@ -156,17 +170,7 @@ function render(events){
     (CONFIG.allEventsUrl ? `<div class="more"><a href="${esc(CONFIG.allEventsUrl)}" target="_blank" rel="noopener">See all events</a></div>` : "");
 }
 
-function demoEvents(){
-  const at = (days,h,m,dur) => { const s=new Date(); s.setDate(s.getDate()+days); s.setHours(h,m,0,0); const e=new Date(s.getTime()+dur*60000); return {start:{dateTime:s.toISOString()},end:{dateTime:e.toISOString()}}; };
-  return [
-    {summary:"Zouk Sunday – Social & Taster | FLINTA Edition", location:"Die Bäckerei, Dreiheiligenstraße 21a, 6020 Innsbruck, Österreich", description:"Type: Social", ...at(3,19,0,180)},
-    {summary:"Brazilian Zouk – Block 2 - 4/4", location:"Baila Innsbruck, Sterzinger Str. 2, 6020 Innsbruck, Österreich", description:"Type: Class", ...at(4,20,30,60)},
-    {summary:"Lambazouk Workshop Weekend", location:"Innsbruck, Austria", description:"Type: Workshop\nTag: Lambazouk", ...at(11,14,0,180)},
-  ];
-}
-
 async function load(){
-  if (!CONFIG.apiKey || !CONFIG.calendarId){ render(demoEvents()); return; }
   const url = new URL(`https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(CONFIG.calendarId)}/events`);
   url.search = new URLSearchParams({
     key: CONFIG.apiKey, timeMin: new Date().toISOString(), singleEvents: "true",
